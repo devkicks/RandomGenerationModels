@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <stdlib.h>
 #include "include\opencv\cv.h"
 #include "include\opencv\highgui.h"
 
@@ -16,7 +16,7 @@ void displayUniformDistrbutioni(cv::Mat &inMat, int numItr = 1000000);
 void displayGaussianDistrbutionCentralLimiti(cv::Mat &inMat, int numItr = 1000000);
 void displayGaussianDistrbutionBoxMulleri(cv::Mat &inMat, int numItr = 1000000);
 void displayMixtureDistributionBoxMulleri(cv::Mat &inMat, int numItr = 1000000);
-
+void displayCustomDistributioni(cv::Mat &inMat, int numItr = 1000000);
 // uniform distribution generator 0 - 1 range
 double uniformDistributionRN();
 
@@ -33,6 +33,10 @@ int gaussianDistributionBoxMullerRNi(int cP);
 
 // mixture distribution generation -cP - +cP range
 int mixtureDistribution(int cP);
+
+// a custom distribution
+void myCustomDistribution(int cP, int &retX, int &retY);
+
 
 int main ()
 {
@@ -54,6 +58,11 @@ int main ()
 	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
 	displayMixtureDistributionBoxMulleri(displayMat);
 	cv::imshow("Mixture Distribution Box Muller", displayMat);
+
+	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
+	displayCustomDistributioni(displayMat);
+	cv::imshow("Custom Distribution", displayMat);
+
 
 	cv::waitKey(0);
 
@@ -198,6 +207,35 @@ void displayMixtureDistributionBoxMulleri(cv::Mat &inMat, int numItr)
 	}
 }
 
+void displayCustomDistributioni(cv::Mat &inMat, int numItr)
+{
+	int x, y;
+
+	int cx, cy;
+	cx = (C_COLS + 1) / 2;
+	cy = (C_ROWS + 1) / 2;
+
+	//std::cout << cx << ", " << cy << std::endl;
+
+
+	for (int i = 0; i < numItr; i++)
+	{
+
+
+		myCustomDistribution(cx - 1, x, y);
+		//y = myCustomDistribution(cy - 1);
+
+		//std::cout << x << ", " << y << std::endl;
+
+		// display on image
+		if (inMat.at<uchar>(y + cy, x + cx) < 255)
+			inMat.at<uchar>(y + cy, x + cx) += 20;
+
+	}
+}
+
+
+
 double uniformDistributionRN()
 {
 	double retVal = (-1 + (1 + 1)*((double)(std::rand()%C_RANDSIZE) / (double)C_RANDSIZE));
@@ -294,18 +332,97 @@ int mixtureDistribution(int cP)
 	nD2 = boxMuller();
 
 	// adjust the mean for both
-	nD1 = nD1 ;
-	nD2 = nD2 + 3;
+	nD1 = nD1 - 1.5 ;
+	nD2 = nD2 + 1.5;
 
 	// compute mixture distribution
-	double mD = (0.5*nD1 + 0.5*nD2)/6;
+	double randSel = rand() % 2;
+	double mD = 0;
+
+	if( randSel )
+		mD = nD1 /3;
+	else
+		mD = nD2 /3;
+
 	
-	if (mD > 1.0)
+	if (mD > 1.0 || mD < -1)
 		goto startLabel;
+
+	//std::cout << "nD1: " << nD1 << " nD2: " << nD2 << " mD: " << mD << std::endl;
 
 	// get return value
 	int retVal = mD * cP;
 
 	return retVal;
 
+}
+
+void myCustomDistribution(int cP, int &retX, int &retY)
+{
+	double X, Y;
+
+	myCustomStart:
+	X = boxMuller();
+	Y = boxMuller();
+
+	// re-normalising so that all the values stay within the limit -1 to 1
+	//X = X / 2.3;
+	//Y = Y / 2.3;
+
+	// Drawing values from the Multivariate normal distribution
+	// https://en.wikipedia.org/wiki/Multivariate_normal_distribution
+	// A
+	cv::Mat covMat = cv::Mat::zeros(2, 2, CV_32FC1);
+	covMat.at<float>(0, 0) = 1.0;
+	covMat.at<float>(1, 1) = 1.0;
+
+	covMat.at<float>(1, 0) = 0.0;
+	covMat.at<float>(0, 1) = 0.0;
+	
+	// Cholesky() with OpenCV - requires rescaling
+	// code take from stack overflow
+	// http://stackoverflow.com/questions/7861772/how-to-perform-lu-decomposition-with-opencv
+	cv::Mat chol = covMat.clone();
+	if(cv::Cholesky(chol.ptr<float>(), chol.step, chol.cols, 0, 0, 0))
+	{
+		cv::Mat diagElem = chol.diag();
+		for( int e = 0; e < diagElem.rows; ++e)
+		{
+			float elem = diagElem.at<float>(e);
+			chol.row(e) *= elem;
+			chol.at<float>(e, e) = 1.0f / elem;
+		}
+	}
+	// Cholesky decomposition code finished - we can use chol as A in equation x = mu + Az for multivariate normal distribution generation
+	cv::Mat zMat = cv::Mat::zeros(2, 1, CV_32FC1);
+	zMat.at<float>(0, 0) = X;
+	zMat.at<float>(1, 0) = Y;
+
+	cv::Mat xMat = cv::Mat::zeros(2, 1, CV_32FC1);
+
+	xMat = chol * zMat;
+
+	//std::cout << chol <<std::endl;
+
+	//std::cout << "Original Values: X: " << X << " Y: " << Y << std::endl;
+	//std::cout << "MultiVariate Vl: X: " << xMat.at<float>(0,0) << " Y: " << xMat.at<float>(1,0) << std::endl;
+
+	// renormalising the xMat to have a Mat within the range -1 to 1
+	xMat = xMat / 2.3;
+	//std::cout << xMat << std::endl;
+
+	double centralSpace = 0.05;
+
+	double xO = xMat.at<float>(0, 0);
+	double yO = xMat.at<float>(1, 0);
+
+	double radiusCheck = std::sqrt(std::pow(xO, 2) + std::pow(yO, 2));
+
+	if(xO > 1 || xO < -1 || yO > 1 || yO < -1 || (radiusCheck < centralSpace && radiusCheck >-centralSpace))
+		goto myCustomStart;
+	// converting the values to the defined window size
+	retX = cP * xO;
+	retY = cP * yO;
+
+	//return retVal;
 }
