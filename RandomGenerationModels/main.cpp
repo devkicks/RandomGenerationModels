@@ -45,24 +45,27 @@ int main ()
 	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
 	displayUniformDistrbutioni(displayMat);
 	cv::imshow("Uniform Distribution", displayMat);
+	cv::imwrite("uniformDistribution.png", displayMat);
 
 	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
 	displayGaussianDistrbutionCentralLimiti(displayMat);
 	cv::imshow("Gaussian Distribution Central Limit", displayMat);
-
+	cv::imwrite("gaussianDistributionCL.png", displayMat);
 
 	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
 	displayGaussianDistrbutionBoxMulleri(displayMat);
 	cv::imshow("Gaussian Distribution Box Muller", displayMat);
+	cv::imwrite("gaussianDistributionBM.png", displayMat);
 
 	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
 	displayMixtureDistributionBoxMulleri(displayMat);
 	cv::imshow("Mixture Distribution Box Muller", displayMat);
+	cv::imwrite("mixtureDistributionBM.png", displayMat);
 
 	displayMat = cv::Mat::zeros(C_ROWS, C_COLS, CV_8UC1);
 	displayCustomDistributioni(displayMat);
 	cv::imshow("Custom Distribution", displayMat);
-
+	cv::imwrite("customDistribution.png", displayMat);
 
 	cv::waitKey(0);
 
